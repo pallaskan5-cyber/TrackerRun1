@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrackIt - Tracking GPS en Temps Réel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --strava-orange: #fc4c02;
+            --strava-dark: #000000;
+            --strava-light: #f8f9fa;
+            --strava-gray: #6c757d;
+            --strava-border: #dee2e6;
+            --primary: #4361ee;
+            --success: #4ade80;
+            --danger: #f87171;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f0f2f5;
+            color: var(--strava-dark);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        #app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            padding: 0.8rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            border-bottom: 1px solid var(--strava-border);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        
+        .logo h1 {
+            font-size: 1.5rem;
+            color: var(--strava-orange);
+            font-weight: 700;
+        }
+        
+        .logo i {
+            color: var(--strava-orange);
+            font-size: 1.8rem;
+        }
+        
+        .user-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--strava-orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        /* Main Content */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: var(--card-bg);
+            padding: 1.5rem;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            border-right: 1px solid var(--strava-border);
+        }
+        
+        .auth-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.2rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--strava-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .form-group label {
+            font-size: 0.85rem;
+            color: var(--strava-gray);
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: 1px solid var(--strava-border);
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--strava-orange);
+            box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.1);
+        }
+        
+        .btn {
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.95rem;
+        }
+        
+        .btn-primary {
+            background: var(--strava-orange);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #e04400;
+            transform: translateY(-1px);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--strava-orange);
+            color: var(--strava-orange);
+        }
+        
+        .btn-outline:hover {
+            background: rgba(252, 76, 2, 0.05);
+        }
+        
+        .switch-form {
+            text-align: center;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--strava-gray);
+        }
+        
+        .switch-form a {
+            color: var(--strava-orange);
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .switch-form a:hover {
+            text-decoration: underline;
+        }
+        
+        .user-info {
+            background: white;
+            border-radius: 8px;
+            padding: 1.2rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+        
+        .user-info.show {
+            display: block;
+        }
+        
+        .user-info h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .user-info p {
+            font-size: 0.9rem;
+            color: var(--strava-gray);
+            margin: 0.4rem 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .user-info p strong {
+            color: var(--strava-dark);
+        }
+        
+        .logout-btn {
+            background: #f8f9fa;
+            color: var(--strava-gray);
+            border: 1px solid var(--strava-border);
+            margin-top: 1rem;
+        }
+        
+        .logout-btn:hover {
+            background: #e9ecef;
+        }
+        
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: #e9ecef;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        /* Controls Panel */
+        .controls-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 1.2rem;
+            width: 300px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 10;
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid var(--strava-border);
+        }
+        
+        .panel-header h2 {
+            font-size: 1.1rem;
+            color: var(--strava-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .close-panel {
+            background: none;
+            border: none;
+            color: var(--strava-gray);
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        .control-group {
+            margin-bottom: 1.2rem;
+        }
+        
+        .control-group h3 {
+            font-size: 0.95rem;
+            margin-bottom: 0.8rem;
+            color: var(--strava-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 0.8rem 0;
+        }
+        
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.95rem;
+        }
+        
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 24px;
+        }
+        
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--strava-orange);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem;
+            border-radius: 6px;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            background: #f8f9fa;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--danger);
+        }
+        
+        .status-dot.active {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+        
+        .coordinates-display {
+            background: #f8f9fa;
+            padding: 0.7rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            min-height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--strava-border);
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.7rem;
+            margin-top: 0.8rem;
+        }
+        
+        .btn-action {
+            padding: 0.7rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn-start {
+            background: rgba(74, 222, 128, 0.15);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+        
+        .btn-start:hover {
+            background: rgba(74, 222, 128, 0.25);
+        }
+        
+        .btn-stop {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+        
+        .btn-stop:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+        
+        /* Bottom Navigation */
+        .bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            background: white;
+            padding: 0.6rem 0;
+            border-top: 1px solid var(--strava-border);
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            color: var(--strava-gray);
+            cursor: pointer;
+            transition: var(--transition);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+        
+        .nav-item:hover, .nav-item.active {
+            color: var(--strava-orange);
+            background: rgba(252, 76, 2, 0.05);
+        }
+        
+        .nav-item i {
+            font-size: 1.1rem;
+        }
+        
+        /* Stats View */
+        .stats-view {
+            padding: 2rem;
+            display: none;
+        }
+        
+        .stats-view.show {
+            display: block;
+        }
+        
+        .stats-header {
+            margin-bottom: 2rem;
+        }
+        
+        .stats-header h2 {
+            font-size: 1.5rem;
+            color: var(--strava-dark);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stats-header p {
+            color: var(--strava-gray);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--strava-border);
+        }
+        
+        .stat-card h3 {
+            font-size: 0.9rem;
+            color: var(--strava-gray);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--strava-dark);
+            margin-bottom: 0.3rem;
+        }
+        
+        .stat-description {
+            font-size: 0.9rem;
+            color: var(--strava-gray);
+        }
+        
+        /* Settings View */
+        .settings-view {
+            padding: 2rem;
+            display: none;
+        }
+        
+        .settings-view.show {
+            display: block;
+        }
+        
+        .settings-header {
+            margin-bottom: 2rem;
+        }
+        
+        .settings-header h2 {
+            font-size: 1.5rem;
+            color: var(--strava-dark);
+            margin-bottom: 0.5rem;
+        }
+        
+        .settings-header p {
+            color: var(--strava-gray);
+        }
+        
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .setting-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--strava-border);
+        }
+        
+        .setting-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--strava-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .setting-item {
+            margin-bottom: 1.2rem;
+        }
+        
+        .setting-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .setting-item label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--strava-gray);
+            font-size: 0.95rem;
+        }
+        
+        .setting-item select, .setting-item input {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 6px;
+            background: white;
+            border: 1px solid var(--strava-border);
+            color: var(--strava-dark);
+            font-size: 0.95rem;
+        }
+        
+        .setting-item select:focus, .setting-item input:focus {
+            outline: none;
+            border-color: var(--strava-orange);
+            box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.1);
+        }
+        
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .notification.success {
+            background: #10b981;
+        }
+        
+        .notification.error {
+            background: #ef4444;
+        }
+        
+        .notification.info {
+            background: #3b82f6;
+        }
+        
+        /* Responsive */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 250px;
+            }
+            
+            .controls-panel {
+                width: 280px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--strava-border);
+            }
+            
+            .controls-panel {
+                width: calc(100% - 40px);
+                right: 20px;
+                left: 20px;
+            }
+            
+            .bottom-nav {
+                padding: 0.4rem 0;
+            }
+            
+            .nav-item {
+                padding: 0.3rem 0.5rem;
+            }
+            
+            .nav-item i {
+                font-size: 1rem;
+            }
+            
+            .nav-item span {
+                font-size: 0.7rem;
+            }
+        }
+        
+        /* Custom Marker */
+        .user-marker {
+            background: var(--strava-orange);
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            box-shadow: 0 0 0 4px rgba(252, 76, 2, 0.3);
+        }
+        
+        /* Activity Indicator */
+        .activity-indicator {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            display: none;
+        }
+        
+        .activity-indicator.show {
+            display: block;
+        }
+        
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 0.8rem;
+        }
+        
+        .activity-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #f0f2f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--strava-orange);
+            font-size: 1.2rem;
+        }
+        
+        .activity-info h4 {
+            font-size: 0.95rem;
+            margin-bottom: 0.2rem;
+        }
+        
+        .activity-info p {
+            font-size: 0.85rem;
+            color: var(--strava-gray);
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-location-dot"></i>
+                <h1>TrackIt</h1>
+            </div>
+            <div class="user-status" id="userStatus">
+                <div class="user-avatar">U</div>
+                <span>Non connecté</span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="auth-section">
+                    <h2 class="section-title"><i class="fas fa-user-circle"></i> Connexion</h2>
+                    <div id="authForms">
+                        <!-- Formulaire de connexion -->
+                        <div id="loginForm" class="auth-form">
+                            <div class="form-group">
+                                <label for="loginEmail">Email</label>
+                                <input type="email" id="loginEmail" placeholder="votre@email.com" value="utilisateur@test.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="loginPassword">Mot de passe</label>
+                                <input type="password" id="loginPassword" placeholder="••••••••" value="motdepasse123">
+                            </div>
+                            <button class="btn btn-primary" id="loginBtn">
+                                <i class="fas fa-sign-in-alt"></i> Se connecter
+                            </button>
+                            <div class="switch-form">
+                                Pas encore de compte? <a id="showRegister">S'inscrire</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Formulaire d'inscription -->
+                        <div id="registerForm" class="auth-form" style="display: none;">
+                            <div class="form-group">
+                                <label for="registerName">Nom complet</label>
+                                <input type="text" id="registerName" placeholder="Votre nom">
+                            </div>
+                            <div class="form-group">
+                                <label for="registerEmail">Email</label>
+                                <input type="email" id="registerEmail" placeholder="votre@email.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="registerPassword">Mot de passe</label>
+                                <input type="password" id="registerPassword" placeholder="••••••••">
+                            </div>
+                            <button class="btn btn-primary" id="registerBtn">
+                                <i class="fas fa-user-plus"></i> S'inscrire
+                            </button>
+                            <div class="switch-form">
+                                Déjà inscrit? <a id="showLogin">Se connecter</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informations utilisateur (affiché après connexion) -->
+                <div id="userInfo" class="user-info">
+                    <h3><i class="fas fa-user-circle"></i> Profil</h3>
+                    <p><strong>Nom:</strong> <span id="userNameDisplay">-</span></p>
+                    <p><strong>Email:</strong> <span id="userEmailDisplay">-</span></p>
+                    <p><strong>ID:</strong> <span id="userIdDisplay">-</span></p>
+                    <p><strong>Status:</strong> <span id="trackingStatus">Inactif</span></p>
+                    <button class="btn logout-btn" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i> Déconnexion
+                    </button>
+                </div>
+                
+                <div class="auth-section">
+                    <h2 class="section-title"><i class="fas fa-tachometer-alt"></i> Activité récente</h2>
+                    <div class="activity-indicator" id="activityIndicator">
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas fa-walking"></i>
+                            </div>
+                            <div class="activity-info">
+                                <h4>Randonnée matinale</h4>
+                                <p>2.4 km • 32 min • Hier</p>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas fa-bicycle"></i>
+                            </div>
+                            <div class="activity-info">
+                                <h4>Balade vélo</h4>
+                                <p>8.7 km • 28 min • 2 jours ago</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Zone de contenu principal -->
+            <div class="content-area">
+                <!-- Conteneur de la carte -->
+                <div class="map-container">
+                    <div id="map"></div>
+                    
+                    <!-- Panneau de contrôle -->
+                    <div class="controls-panel" id="controlsPanel">
+                        <div class="panel-header">
+                            <h2><i class="fas fa-cog"></i> Contrôles</h2>
+                            <button class="close-panel" id="closePanel">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="control-group">
+                            <h3><i class="fas fa-sliders-h"></i> Suivi GPS</h3>
+                            <div class="toggle-switch">
+                                <div class="toggle-label">
+                                    <i class="fas fa-location-crosshairs"></i>
+                                    <span>Suivi GPS</span>
+                                </div>
+                                <label class="toggle">
+                                    <input type="checkbox" id="trackingToggle">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            
+                            <div class="status-indicator">
+                                <div class="status-dot" id="statusDot"></div>
+                                <span id="statusText">Suivi désactivé</span>
+                            </div>
+                            
+                            <div class="coordinates-display" id="coordinatesDisplay">
+                                Coordonnées: Attente...
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button class="btn-action btn-start" id="startBtn">
+                                <i class="fas fa-play"></i> Démarrer
+                            </button>
+                            <button class="btn-action btn-stop" id="stopBtn">
+                                <i class="fas fa-stop"></i> Arrêter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vue Statistiques -->
+                <div class="stats-view" id="statsView">
+                    <div class="stats-header">
+                        <h2><i class="fas fa-chart-line"></i> Statistiques de Suivi</h2>
+                        <p>Informations sur votre activité de suivi GPS</p>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>Distance parcourue</h3>
+                            <div class="stat-value">2.4 km</div>
+                            <div class="stat-description">Aujourd'hui</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <h3>Temps de suivi</h3>
+                            <div class="stat-value">1h 24m</div>
+                            <div class="stat-description">Session actuelle</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <h3>Vitesse moyenne</h3>
+                            <div class="stat-value">4.2 km/h</div>
+                            <div class="stat-description">Sur la dernière heure</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <h3>Précision</h3>
+                            <div class="stat-value">2.8 m</div>
+                            <div class="stat-description">Précision moyenne</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-grid" style="margin-top: 2rem;">
+                        <div class="stat-card">
+                            <h3>Historique des positions</h3>
+                            <div class="stat-description">
+                                <p>Dernière position: 48.8566, 2.3522</p>
+                                <p>Date: Aujourd'hui à 14:32</p>
+                                <p>Source: GPS (haute précision)</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <h3>Consommation batterie</h3>
+                            <div class="stat-value">3.2%</div>
+                            <div class="stat-description">Utilisé pendant le suivi</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vue Paramètres -->
+                <div class="settings-view" id="settingsView">
+                    <div class="settings-header">
+                        <h2><i class="fas fa-cog"></i> Paramètres de Suivi</h2>
+                        <p>Configurez votre expérience de suivi GPS</p>
+                    </div>
+                    
+                    <div class="settings-grid">
+                        <div class="setting-card">
+                            <h3><i class="fas fa-sliders-h"></i> Paramètres GPS</h3>
+                            
+                            <div class="setting-item">
+                                <label for="accuracy">Précision du suivi</label>
+                                <select id="accuracy">
+                                    <option value="high">Haute précision</option>
+                                    <option value="medium">Précision moyenne</option>
+                                    <option value="low">Faible précision</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="interval">Intervalle de mise à jour</label>
+                                <select id="interval">
+                                    <option value="1">1 seconde</option>
+                                    <option value="5" selected>5 secondes</option>
+                                    <option value="10">10 secondes</option>
+                                    <option value="30">30 secondes</option>
+                                    <option value="60">1 minute</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="battery">Optimisation batterie</label>
+                                <select id="battery">
+                                    <option value="balanced">Équilibré</option>
+                                    <option value="performance">Performance</option>
+                                    <option value="power-save">Économie d'énergie</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-card">
+                            <h3><i class="fas fa-bell"></i> Notifications</h3>
+                            
+                            <div class="setting-item">
+                                <label for="notifications">Notifications système</label>
+                                <select id="notifications">
+                                    <option value="all">Toutes les notifications</option>
+                                    <option value="important" selected>Uniquement importantes</option>
+                                    <option value="none">Aucune notification</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="alerts">Alertes de mouvement</label>
+                                <select id="alerts">
+                                    <option value="enabled">Activées</option>
+                                    <option value="disabled">Désactivées</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="geofence">Alertes de géo-repérage</label>
+                                <select id="geofence">
+                                    <option value="enabled">Activées</option>
+                                    <option value="disabled" selected>Désactivées</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-card">
+                            <h3><i class="fas fa-user-shield"></i> Confidentialité</h3>
+                            
+                            <div class="setting-item">
+                                <label for="visibility">Visibilité sur la carte</label>
+                                <select id="visibility">
+                                    <option value="public">Publique</option>
+                                    <option value="friends">Amis uniquement</option>
+                                    <option value="private" selected>Privée</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="history">Historique des positions</label>
+                                <select id="history">
+                                    <option value="30">30 jours</option>
+                                    <option value="7" selected>7 jours</option>
+                                    <option value="1">1 jour</option>
+                                    <option value="none">Ne pas sauvegarder</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="sharing">Partage des données</label>
+                                <select id="sharing">
+                                    <option value="none">Aucun partage</option>
+                                    <option value="analytics" selected>Analyse anonyme uniquement</option>
+                                    <option value="partners">Partenaires autorisés</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 2rem;">
+                        <button class="btn btn-primary">
+                            <i class="fas fa-save"></i> Enregistrer les paramètres
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Navigation du bas -->
+        <div class="bottom-nav">
+            <div class="nav-item active" data-view="map">
+                <i class="fas fa-map-marked-alt"></i>
+                <span>Carte</span>
+            </div>
+            <div class="nav-item" data-view="stats">
+                <i class="fas fa-chart-bar"></i>
+                <span>Statistiques</span>
+            </div>
+            <div class="nav-item" data-view="settings">
+                <i class="fas fa-cog"></i>
+                <span>Paramètres</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // État de l'application
+        const state = {
+            currentUser: null,
+            isTracking: false,
+            trackingInterval: null,
+            currentView: 'map',
+            map: null,
+            userMarker: null,
+            polyline: null,
+            positions: []
+        };
+        
+        // Initialisation de l'application
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeApp();
+            setupEventListeners();
+        });
+        
+        // Initialisation de l'application
+        function initializeApp() {
+            // Initialisation de la carte OpenStreetMap
+            state.map = L.map('map').setView([48.8566, 2.3522], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(state.map);
+            
+            // Créer un marqueur personnalisé
+            const userIcon = L.divIcon({
+                className: 'user-marker',
+                iconSize: [18, 18]
+            });
+            
+            // Initialiser le marqueur utilisateur
+            state.userMarker = L.marker([48.8566, 2.3522], {icon: userIcon}).addTo(state.map);
+            
+            // Initialiser la polyligne pour le tracé
+            state.polyline = L.polyline([], {color: '#fc4c02', weight: 5}).addTo(state.map);
+        }
+        
+        // Configuration des écouteurs d'événements
+        function setupEventListeners() {
+            // Navigation entre formulaires
+            document.getElementById('showRegister').addEventListener('click', () => {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('registerForm').style.display = 'flex';
+            });
+            
+            document.getElementById('showLogin').addEventListener('click', () => {
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('loginForm').style.display = 'flex';
+            });
+            
+            // Connexion
+            document.getElementById('loginBtn').addEventListener('click', loginUser);
+            
+            // Inscription
+            document.getElementById('registerBtn').addEventListener('click', registerUser);
+            
+            // Déconnexion
+            document.getElementById('logoutBtn').addEventListener('click', logoutUser);
+            
+            // Contrôles de suivi
+            document.getElementById('trackingToggle').addEventListener('change', toggleTracking);
+            document.getElementById('startBtn').addEventListener('click', startTracking);
+            document.getElementById('stopBtn').addEventListener('click', stopTracking);
+            
+            // Fermeture du panneau
+            document.getElementById('closePanel').addEventListener('click', () => {
+                document.getElementById('controlsPanel').style.display = 'none';
+            });
+            
+            // Navigation du bas
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    // Retirer la classe active de tous les éléments
+                    document.querySelectorAll('.nav-item').forEach(nav => {
+                        nav.classList.remove('active');
+                    });
+                    
+                    // Ajouter la classe active à l'élément cliqué
+                    item.classList.add('active');
+                    
+                    // Changer de vue
+                    changeView(item.dataset.view);
+                });
+            });
+        }
+        
+        // Changer de vue
+        function changeView(view) {
+            state.currentView = view;
+            
+            // Masquer toutes les vues
+            document.getElementById('map').parentElement.style.display = 'none';
+            document.getElementById('statsView').classList.remove('show');
+            document.getElementById('settingsView').classList.remove('show');
+            
+            // Afficher la vue sélectionnée
+            switch(view) {
+                case 'map':
+                    document.getElementById('map').parentElement.style.display = 'block';
+                    break;
+                case 'stats':
+                    document.getElementById('statsView').classList.add('show');
+                    break;
+                case 'settings':
+                    document.getElementById('settingsView').classList.add('show');
+                    break;
+            }
+        }
+        
+        // Fonction de connexion
+        function loginUser() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            // Validation simple (dans une vraie app, ce serait côté serveur)
+            if (email && password) {
+                // Simuler l'authentification
+                state.currentUser = {
+                    id: 'user-' + Math.floor(Math.random() * 1000),
+                    email: email,
+                    name: email.split('@')[0]
+                };
+                
+                // Masquer les formulaires et afficher les infos utilisateur
+                document.getElementById('authForms').style.display = 'none';
+                document.getElementById('userInfo').classList.add('show');
+                document.getElementById('activityIndicator').classList.add('show');
+                
+                // Mettre à jour l'affichage
+                document.getElementById('userNameDisplay').textContent = state.currentUser.name;
+                document.getElementById('userEmailDisplay').textContent = state.currentUser.email;
+                document.getElementById('userIdDisplay').textContent = state.currentUser.id;
+                document.getElementById('userStatus').innerHTML = `<div class="user-avatar">${state.currentUser.name.charAt(0)}</div><span>${state.currentUser.name}</span>`;
+                
+                // Afficher un message de bienvenue
+                showNotification(`Bienvenue ${state.currentUser.name}!`, 'success');
+            } else {
+                showNotification('Veuillez remplir tous les champs', 'error');
+            }
+        }
+        
+        // Fonction d'inscription
+        function registerUser() {
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            
+            if (name && email && password) {
+                // Simuler l'enregistrement
+                state.currentUser = {
+                    id: 'user-' + Math.floor(Math.random() * 1000),
+                    email: email,
+                    name: name
+                };
+                
+                // Masquer les formulaires et afficher les infos utilisateur
+                document.getElementById('authForms').style.display = 'none';
+                document.getElementById('userInfo').classList.add('show');
+                document.getElementById('activityIndicator').classList.add('show');
+                
+                // Mettre à jour l'affichage
+                document.getElementById('userNameDisplay').textContent = state.currentUser.name;
+                document.getElementById('userEmailDisplay').textContent = state.currentUser.email;
+                document.getElementById('userIdDisplay').textContent = state.currentUser.id;
+                document.getElementById('userStatus').innerHTML = `<div class="user-avatar">${state.currentUser.name.charAt(0)}</div><span>${state.currentUser.name}</span>`;
+                
+                showNotification(`Compte créé avec succès! Bienvenue ${name}`, 'success');
+            } else {
+                showNotification('Veuillez remplir tous les champs', 'error');
+            }
+        }
+        
+        // Fonction de déconnexion
+        function logoutUser() {
+            // Arrêter le suivi si actif
+            if (state.isTracking) {
+                stopTracking();
+            }
+            
+            // Réinitialiser l'état
+            state.currentUser = null;
+            
+            // Afficher les formulaires et masquer les infos utilisateur
+            document.getElementById('authForms').style.display = 'flex';
+            document.getElementById('userInfo').classList.remove('show');
+            document.getElementById('activityIndicator').classList.remove('show');
+            document.getElementById('loginForm').style.display = 'flex';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('userStatus').innerHTML = '<div class="user-avatar">U</div><span>Non connecté</span>';
+            
+            showNotification('Vous avez été déconnecté', 'info');
+        }
+        
+        // Basculer le suivi GPS
+        function toggleTracking() {
+            const toggle = document.getElementById('trackingToggle');
+            if (toggle.checked) {
+                startTracking();
+            } else {
+                stopTracking();
+            }
+        }
+        
+        // Démarrer le suivi GPS
+        function startTracking() {
+            if (!navigator.geolocation) {
+                showNotification('La géolocalisation n\'est pas supportée', 'error');
+                return;
+            }
+            
+            // Simuler le suivi avec setInterval
+            state.trackingInterval = setInterval(() => {
+                // Générer des coordonnées aléatoires autour de Paris
+                const lat = 48.8566 + (Math.random() - 0.5) * 0.01;
+                const lng = 2.3522 + (Math.random() - 0.5) * 0.01;
+                
+                // Mettre à jour l'affichage des coordonnées
+                document.getElementById('coordinatesDisplay').innerHTML = 
+                    `Lat: ${lat.toFixed(6)}<br>Lon: ${lng.toFixed(6)}`;
+                
+                // Mettre à jour la position sur la carte
+                updateUserPosition(lat, lng);
+                
+                // Mettre à jour le statut
+                document.getElementById('trackingStatus').textContent = 'Actif';
+                document.getElementById('statusDot').classList.add('active');
+                document.getElementById('statusText').textContent = 'Suivi activé';
+            }, 1000);
+            
+            state.isTracking = true;
+            document.getElementById('trackingToggle').checked = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            showNotification('Suivi GPS démarré', 'success');
+        }
+        
+        // Arrêter le suivi GPS
+        function stopTracking() {
+            if (state.trackingInterval) {
+                clearInterval(state.trackingInterval);
+                state.trackingInterval = null;
+            }
+            
+            state.isTracking = false;
+            document.getElementById('trackingToggle').checked = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            // Mettre à jour le statut
+            document.getElementById('trackingStatus').textContent = 'Inactif';
+            document.getElementById('statusDot').classList.remove('active');
+            document.getElementById('statusText').textContent = 'Suivi désactivé';
+            
+            showNotification('Suivi GPS arrêté', 'info');
+        }
+        
+        // Mettre à jour la position de l'utilisateur
+        function updateUserPosition(lat, lng) {
+            // Mettre à jour la position du marqueur
+            state.userMarker.setLatLng([lat, lng]);
+            
+            // Centrer la carte sur l'utilisateur
+            state.map.setView([lat, lng]);
+            
+            // Ajouter la position au tracé
+            state.positions.push([lat, lng]);
+            state.polyline.setLatLngs(state.positions);
+        }
+        
+        // Afficher une notification
+        function showNotification(message, type) {
+            // Créer l'élément de notification
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            // Animation d'entrée
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 10);
+            
+            // Supprimer après 3 secondes
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
